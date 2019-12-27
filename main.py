@@ -18,9 +18,7 @@ class GUI(QtWidgets.QMainWindow, Ui_MainWindow):
         self.pushButton_4.clicked.connect(self.match_keypoints)
         self.kp1 = []
         self.kp2 = []
-        self.des1 = None
-        self.des2 = None
-        self.good_match = []
+        self.matches = []
     
     def disparity(self):
         imgL = cv2.imread('imL.png',0)
@@ -55,16 +53,58 @@ class GUI(QtWidgets.QMainWindow, Ui_MainWindow):
         plt.show()
 
     def keypoints(self):
-        img_1 = cv2.imread('Aerial1_origin.jpg', cv2.IMREAD_GRAYSCALE)
-        img_2 = cv2.imread('Aerial2_origin.jpg', cv2.IMREAD_GRAYSCALE)
-        sift = cv2.xfeatures2d.SIFT_create(edgeThreshold = 10,contrastThreshold = 0.004)
-
+        img_1 = cv2.imread('Aerial1.jpg', cv2.IMREAD_GRAYSCALE)
+        img_2 = cv2.imread('Aerial2.jpg', cv2.IMREAD_GRAYSCALE)
+        #sift = cv2.xfeatures2d.SIFT_create(edgeThreshold = 10,contrastThreshold = 0.004)
+        sift = cv2.xfeatures2d.SIFT_create()
         kp1, des1 = sift.detectAndCompute(img_1, None)
         kp2, des2 = sift.detectAndCompute(img_2, None)
 
+        kp_des_1 = [(xi, yi) for xi, yi in zip(kp1, des1) ]
+        sorted_kp_des_1 = sorted(kp_des_1,key = lambda x:x[0].size,reverse=True)
+        sorted_kp1 = [xi for xi,_ in sorted_kp_des_1]
+        sorted_des1 = [yi for _,yi in sorted_kp_des_1]
+        self.kp1 = sorted_kp1[:7]
+        sorted_des1= sorted_des1[:7]
+        sorted_des1 = np.array(sorted_des1)
+
+        kp_des_2 = [(xi, yi) for xi, yi in zip(kp2, des2) ]
+        sorted_kp_des_2 = sorted(kp_des_2,key = lambda x:x[0].size,reverse=True)
+        sorted_kp2 = [xi for xi,_ in sorted_kp_des_2]
+        sorted_des2 = [yi for _,yi in sorted_kp_des_2]
+        sorted_des2 = np.array(sorted_des2)
+        self.kp2 = sorted_kp2[:7]
+        sorted_des2= sorted_des2[:7]
+
+        img_1=cv2.drawKeypoints(img_1,self.kp1,img_1)
+        img_2=cv2.drawKeypoints(img_2,self.kp2,img_2)
         bf = cv2.BFMatcher()
-        matches = bf.knnMatch(des1, des2, k=2)
-        matches = sorted(matches, key = lambda x:x[0].distance)
+        
+        match = bf.knnMatch(sorted_des1, sorted_des2, k=2)
+
+        for m, n in match:
+            if m.distance < 0.75 * n.distance:
+                self.matches.append([m])
+
+
+        cv2.imwrite('FeatureAerial1.jpg', img_1)
+        cv2.imwrite('FeatureAerial2.jpg', img_2)
+
+
+        plt.subplot(121),plt.imshow(cv2.cvtColor(img_1, cv2.COLOR_BGR2RGB))
+        plt.title('FeatureAerial1.jpg'), plt.xticks([]), plt.yticks([])
+        plt.subplot(122),plt.imshow(cv2.cvtColor(img_2, cv2.COLOR_BGR2RGB))
+        plt.title('FeatureAerial2.jpg'), plt.xticks([]), plt.yticks([])
+        plt.suptitle('SIFT')
+        plt.show()
+
+        '''
+        bf = cv2.BFMatcher()
+        matches = bf.knnMatch(sorted_des1, sorted_des2, k=2)
+        #matches = sorted(matches, key = lambda x:x[0].distance)
+
+        
+        
         
         for i in range(0,500):
             self.kp1.append(kp1[matches[i][0].queryIdx])
@@ -86,16 +126,19 @@ class GUI(QtWidgets.QMainWindow, Ui_MainWindow):
 
         #points2f = cv2.KeyPoint_convert(self.kp1)
         #print(points2f)
-        
+        '''
         
 
     def match_keypoints(self):
-        img_1 = cv2.imread('Aerial1_origin.jpg', cv2.IMREAD_GRAYSCALE)
-        img_2 = cv2.imread('Aerial2_origin.jpg', cv2.IMREAD_GRAYSCALE)
+        img_1 = cv2.imread('Aerial1.jpg', cv2.IMREAD_GRAYSCALE)
+        img_2 = cv2.imread('Aerial2.jpg', cv2.IMREAD_GRAYSCALE)
+        
+        img_1=cv2.drawKeypoints(img_1,self.kp1,img_1)
+        img_2=cv2.drawKeypoints(img_2,self.kp2,img_2)
         #print(self.kp1)
         #print(self.kp2)
         #print(self.good_match)
-        img_out = cv2.drawMatchesKnn(img_1,self.kp1,img_2,self.kp2,self.good_match,None,flags=2)
+        img_out = cv2.drawMatchesKnn(img_1,self.kp1,img_2,self.kp2,self.matches,None,flags=2)
         plt.imshow(img_out)
         plt.show()
 
